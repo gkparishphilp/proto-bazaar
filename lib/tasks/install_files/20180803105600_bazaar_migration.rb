@@ -21,6 +21,7 @@ class SwellEcomMigration < ActiveRecord::Migration[5.1]
 			t.references	:cart
 			t.references	:offer
 			t.integer			:quantity
+			t.integer			:price
 			t.timestamps
 		end
 
