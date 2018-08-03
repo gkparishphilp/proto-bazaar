@@ -1,2 +1,2 @@
 # bazaar
-a e-commerce engine for rails
+an e-commerce engine for rails
