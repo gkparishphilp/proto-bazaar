@@ -30,7 +30,7 @@ class SwellEcomMigration < ActiveRecord::Migration[5.1]
 			t.references	:shipment, default: nil
 			t.references	:sku
 			t.integer			:quantity, default: 1,
-			t.integer			:status, default: -1, # -1 => picked, 0 => restocked, 1 => stocked
+			t.integer			:status, default: -1, # -1 => pick, 0 => canceled/restock, 1 => stock
 			t.text				:notes, default: nil
 			t.timestamps
 		end
@@ -41,7 +41,7 @@ class SwellEcomMigration < ActiveRecord::Migration[5.1]
 			t.string			:description
 			t.string			:slug
 			t.integer			:status, default: 1
-			t.integer			:max_interval, default: 1
+			t.integer			:max_interval, default: 1 # nil for infinity
 			t.string			:default_interval_unit, default: 'months'
 			t.integer			:default_interval_value, default: 1
 			t.hstore			:properties, default: {}
@@ -70,13 +70,16 @@ class SwellEcomMigration < ActiveRecord::Migration[5.1]
 
 		create_table :bazaar_orders do |t|
 			t.references	:user
+			t.references	:payment_profile
+			t.references	:shipping_address
 			t.string			:type
 			t.references	:parent, polymorphic: true
 			t.references	:email
 			t.string 			:code
 			t.integer			:status, default: 0
+
 			t.string			:ip
-			t.string			:created_by, default: 'checkout' # checkout, subscription, third party ecommerce platform,
+			t.string			:created_by, default: 'checkout' # checkout, wholesale, subscription, third party ecommerce platform,
 
 			t.string			:currency, default: 'USD'
 			t.integer			:subtotal, default: 0
@@ -109,6 +112,14 @@ class SwellEcomMigration < ActiveRecord::Migration[5.1]
 			t.integer			:price, default: 0
 			t.integer			:subtotal, default: 0
 			t.timestamps
+		end
+
+		create_table :bazaar_payment_profile do |t|
+			t.references	:geo_address
+			t.string			:provider
+			t.string			:provider_customer_profile_reference
+			t.string			:provider_customer_payment_profile_reference
+			t.datetime		:expires_at, nil
 		end
 
 		create_table :bazaar_products do |t|
@@ -146,6 +157,8 @@ class SwellEcomMigration < ActiveRecord::Migration[5.1]
 			t.string			:tracking_code
 			t.string			:tracking_url
 
+			t.integer			:cost, defaut: 0
+
 			t.datetime		:estimated_delivered_at, default: nil
 			t.datetime		:fulfillment_accepted_at, default: nil
 			t.datetime		:packed_at, default: nil
@@ -171,10 +184,21 @@ class SwellEcomMigration < ActiveRecord::Migration[5.1]
 		create_table :bazaar_subscriptions do |t|
 			t.references	:user
 			t.references	:offer
+			t.references	:payment_profile
 			t.string 			:code
-			t.string			:default_interval_unit, default: 'months'
-			t.integer			:default_interval_value, default: 1
+
 			t.integer			:current_interval, default: 1
+			t.integer			:max_intervals, default: nil # the way to terminate subscription at the end of a particular interval
+
+			t.datetime		:canceled_at, default: nil
+			t.datetime		:start_at
+			t.datetime		:end_at, default: nil
+
+			t.datetime		:current_interval_start_at
+			t.datetime		:next_interval_start_at
+			t.datetime		:next_interval_bill_at, default: nil # the next time a subscription will be billed
+
+			t.hstore			:properties, default: {}
 			t.timestamps
 		end
 
