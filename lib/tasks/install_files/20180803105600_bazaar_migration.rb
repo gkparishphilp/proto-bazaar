@@ -41,7 +41,7 @@ class SwellEcomMigration < ActiveRecord::Migration[5.1]
 			t.string			:description
 			t.string			:slug
 			t.integer			:status, default: 1
-			t.integer			:max_interval, default: 1 # nil for infinity
+			t.integer			:max_intervals, default: 1 # nil for infinity
 			t.string			:default_interval_unit, default: 'months'
 			t.integer			:default_interval_value, default: 1
 			t.hstore			:properties, default: {}
@@ -62,7 +62,9 @@ class SwellEcomMigration < ActiveRecord::Migration[5.1]
 		add_index 	:bazaar_offer_intervals, [:offer_id, :start_interval], unique: true
 
 		create_table :bazaar_offer_interval_skus do |t|
-			t.references 	:offer_interval
+			t.references 	:offer
+			t.integer 		:start_interval, default: 1
+			t.integer 		:max_intervals, default: 1
 			t.references 	:sku
 			t.integer 		:quantity, default: 1
 			t.timestamps
@@ -79,7 +81,7 @@ class SwellEcomMigration < ActiveRecord::Migration[5.1]
 			t.integer			:status, default: 0
 
 			t.string			:ip
-			t.string			:created_by, default: 'checkout' # checkout, wholesale, subscription, third party ecommerce platform,
+			t.string			:created_by, default: 'checkout' # checkout, wholesale, third party ecommerce platform,
 
 			t.string			:currency, default: 'USD'
 			t.integer			:subtotal, default: 0
@@ -181,14 +183,16 @@ class SwellEcomMigration < ActiveRecord::Migration[5.1]
 			t.timestamps
 		end
 
-		create_table :bazaar_subscriptions do |t|
+		create_table :bazaar_agreements do |t|
 			t.references	:user
 			t.references	:offer
 			t.references	:payment_profile
 			t.string 			:code
 
+			t.integer			:quantity
+
 			t.integer			:current_interval, default: 1
-			t.integer			:max_intervals, default: nil # the way to terminate subscription at the end of a particular interval
+			t.integer			:max_intervals, default: 1
 
 			t.datetime		:canceled_at, default: nil
 			t.datetime		:start_at
@@ -196,22 +200,39 @@ class SwellEcomMigration < ActiveRecord::Migration[5.1]
 
 			t.datetime		:current_interval_start_at
 			t.datetime		:next_interval_start_at
-			t.datetime		:next_interval_bill_at, default: nil # the next time a subscription will be billed
+			t.datetime		:next_interval_bill_at, default: nil # the next time an agreement will be billed
 
 			t.hstore			:properties, default: {}
 			t.timestamps
 		end
 
+		create_table :bazaar_agreement_intervals do |t|
+			t.references	:agreement
+			t.integer 		:start_interval, default: 1
+			t.string			:interval_unit
+			t.integer			:interval_value
+			t.timestamps
+		end
+		add_index 	:bazaar_agreement_interval_rythms, [:agreement_id, :start_interval], unique: true
+
+		create_table :bazaar_agreement_interval_discounts do |t|
+			t.references	:agreement
+			t.integer 		:start_interval, default: 1
+			t.integer 		:max_intervals, default: 1
+			t.references	:discount
+			t.timestamps
+		end
+
 		# indicates the orders generated for each interval, and which offer was sold.
-		# In this way multiple subscriptions could be put together on the same order.
-		create_table :bazaar_subscription_orders do |t|
-			t.references	:subscription
+		# In this way multiple agreements could be put together on the same order.
+		create_table :bazaar_agreement_orders do |t|
+			t.references	:agreement
 			t.references	:order
 			t.references	:offer_interval
 			t.integer			:interval, default: 1
 			t.timestamps
 		end
-		add_index 	:bazaar_subscription_orders, [:subscription_id, :interval], unique: true
+		add_index 	:bazaar_agreement_orders, [:agreement_id, :interval], unique: true
 
 		create_table :bazaar_skus do |t|
 			t.string		:title
