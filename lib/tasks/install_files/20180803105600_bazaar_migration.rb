@@ -252,6 +252,22 @@ class SwellEcomMigration < ActiveRecord::Migration[5.1]
 			t.timestamps
 		end
 
+		create_table :bazaar_transactions do |t|
+			t.references :cart
+			t.references :order
+			t.references :user
+			t.references :agreement
+			t.references :payment_profile
+			t.integer :transaction_type, default: 1
+			t.string :reference_code
+			t.integer :amount, default: 0
+			t.string :currency, default: "USD"
+			t.integer :status, default: 1
+			t.text :message
+			t.hstore :properties, default: {}
+			t.timestamps
+		end
+
 
 
 	end
