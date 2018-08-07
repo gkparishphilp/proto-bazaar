@@ -1,6 +1,57 @@
 class SwellEcomMigration < ActiveRecord::Migration[5.1]
 	def change
 
+		create_table :bazaar_agreements do |t|
+			t.references	:user
+			t.references	:offer
+			t.references	:payment_profile
+			t.string 			:code
+
+			t.integer			:quantity, default: 1
+
+			t.integer			:current_interval, default: 1
+			t.integer			:max_intervals, default: 1
+
+			t.datetime		:canceled_at, default: nil
+			t.datetime		:start_at
+			t.datetime		:end_at, default: nil
+
+			t.datetime		:current_interval_start_at
+			t.datetime		:next_interval_start_at
+			t.datetime		:next_interval_bill_at, default: nil # the next time an agreement will be billed
+
+			t.hstore			:properties, default: {}
+			t.timestamps
+		end
+
+		create_table :bazaar_agreement_intervals do |t|
+			t.references	:agreement
+			t.integer 		:start_interval, default: 1
+			t.string			:interval_unit
+			t.integer			:interval_value
+			t.timestamps
+		end
+		add_index 	:bazaar_agreement_intervals, [:agreement_id, :start_interval], unique: true
+
+		create_table :bazaar_agreement_interval_discounts do |t|
+			t.references	:agreement
+			t.integer 		:start_interval, default: 1
+			t.integer 		:max_intervals, default: 1
+			t.references	:discount
+			t.timestamps
+		end
+
+		# indicates the orders generated for each interval, and which offer was sold.
+		# In this way multiple agreements could be put together on the same order.
+		create_table :bazaar_agreement_orders do |t|
+			t.references	:agreement
+			t.references	:order
+			t.references	:offer_interval
+			t.integer			:interval, default: 1
+			t.timestamps
+		end
+		add_index 	:bazaar_agreement_orders, [:agreement_id, :interval], unique: true
+
 		create_table :bazaar_carts do |t|
 			t.references	:user
 			t.references	:email
@@ -117,8 +168,11 @@ class SwellEcomMigration < ActiveRecord::Migration[5.1]
 		end
 
 		create_table :bazaar_payment_profile do |t|
+			t.references	:user
 			t.references	:geo_address
-			t.string			:provider
+			t.string			:payment_method # mastercard, visa, amazon pay, ...
+			t.string			:descriptor # last 4 of a credit card, ...
+			t.string			:provider # the bank or service name
 			t.string			:provider_customer_profile_reference
 			t.string			:provider_customer_payment_profile_reference
 			t.datetime		:expires_at, nil
@@ -182,57 +236,6 @@ class SwellEcomMigration < ActiveRecord::Migration[5.1]
 			t.hstore			:properties, default: {}
 			t.timestamps
 		end
-
-		create_table :bazaar_agreements do |t|
-			t.references	:user
-			t.references	:offer
-			t.references	:payment_profile
-			t.string 			:code
-
-			t.integer			:quantity
-
-			t.integer			:current_interval, default: 1
-			t.integer			:max_intervals, default: 1
-
-			t.datetime		:canceled_at, default: nil
-			t.datetime		:start_at
-			t.datetime		:end_at, default: nil
-
-			t.datetime		:current_interval_start_at
-			t.datetime		:next_interval_start_at
-			t.datetime		:next_interval_bill_at, default: nil # the next time an agreement will be billed
-
-			t.hstore			:properties, default: {}
-			t.timestamps
-		end
-
-		create_table :bazaar_agreement_intervals do |t|
-			t.references	:agreement
-			t.integer 		:start_interval, default: 1
-			t.string			:interval_unit
-			t.integer			:interval_value
-			t.timestamps
-		end
-		add_index 	:bazaar_agreement_interval_rythms, [:agreement_id, :start_interval], unique: true
-
-		create_table :bazaar_agreement_interval_discounts do |t|
-			t.references	:agreement
-			t.integer 		:start_interval, default: 1
-			t.integer 		:max_intervals, default: 1
-			t.references	:discount
-			t.timestamps
-		end
-
-		# indicates the orders generated for each interval, and which offer was sold.
-		# In this way multiple agreements could be put together on the same order.
-		create_table :bazaar_agreement_orders do |t|
-			t.references	:agreement
-			t.references	:order
-			t.references	:offer_interval
-			t.integer			:interval, default: 1
-			t.timestamps
-		end
-		add_index 	:bazaar_agreement_orders, [:agreement_id, :interval], unique: true
 
 		create_table :bazaar_skus do |t|
 			t.string		:title
