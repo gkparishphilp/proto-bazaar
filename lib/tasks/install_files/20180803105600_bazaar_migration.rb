@@ -96,6 +96,10 @@ class SwellEcomMigration < ActiveRecord::Migration[5.1]
 			t.string			:default_interval_unit, default: 'months'
 			t.integer			:default_interval_value, default: 1
 			t.hstore			:properties, default: {}
+			t.integer			:min_quantity, default: 1
+			t.integer			:max_quantity, default: nil
+			t.datetime		:valid_from
+			t.datetime		:valid_to, default: nil
 			t.timestamps
 		end
 
