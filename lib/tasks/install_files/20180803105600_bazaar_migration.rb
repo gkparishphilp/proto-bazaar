@@ -76,6 +76,51 @@ class SwellEcomMigration < ActiveRecord::Migration[5.1]
 			t.timestamps
 		end
 
+		create_table :discount_offer_conditions, force: :cascade do |t|
+			t.references	:discount
+			t.references	:offer
+			t.integer			:min_quantity, default: 1
+			t.integer			:max_quantity, default: nil
+
+			t.timestamps
+		end
+
+		create_table :discount_product_conditions, force: :cascade do |t|
+			t.references	:discount
+			t.references	:product
+			t.integer			:min_quantity, default: 1
+			t.integer			:max_quantity, default: nil
+
+			t.timestamps
+		end
+
+		create_table :discounts, force: :cascade do |t|
+			t.status	:status, default: 0 # trash => -1, draft => 0, active => 1
+			t.string	:type # UnconditionalDiscount, ConditionalDiscount ( Coupon )
+			t.json 		:currency_amounts, default: {} # currency (upcased string) => price (int)
+			t.float		:percent_amount, default: 0
+			t.integer	:discount_type, default: 1 # fixed, fixed_each, percent
+			t.string	:discountable_types, array: true, default: nil # offers, shipping, all
+
+			t.string	:code
+			t.integer	:max_uses_per_customer, default: nil
+			t.integer	:max_uses_global, default: nil
+			t.integer	:min_offer_subtotal, default: 0
+			t.integer	:max_offer_subtotal, default: nil
+			t.integer	:min_shipping_subtotal, default: 0
+			t.integer	:max_shipping_subtotal, default: nil
+			t.integer	:min_quantity, default: 1
+			t.integer	:max_quantity, default: nil
+			t.integer	:min_agreement_interval, default: 1
+			t.integer	:max_agreement_interval, default: 1
+
+			t.boolean	:order_conditions, default: false
+			t.boolean	:product_conditions, default: false
+			t.boolean	:offer_conditions, default: false
+
+			t.timestamps
+		end
+
 		# can sum on this table to determine current stock levels
 		create_table :bazaar_inventory_logs do |t|
 			t.references	:shipment, default: nil
