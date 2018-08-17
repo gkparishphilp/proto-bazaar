@@ -1,12 +1,13 @@
 module Bazaar
 	module AgreementService
 
-		def initialize( options = {} )
-			@options = options
+		def calculate( order, args = {} )
 		end
 
-		def validate( order )
+		def process( order, args = {} )
+		end
 
+		def validate( order, args = {} )
 		end
 
 
