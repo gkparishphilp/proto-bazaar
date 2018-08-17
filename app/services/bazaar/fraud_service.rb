@@ -1,10 +1,6 @@
 module Bazaar
 	module FraudService
 
-    def initialize( options = {} )
-      @options = options
-    end
-
     def fraud?( order )
       return false
     end

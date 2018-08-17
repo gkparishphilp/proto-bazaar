@@ -11,13 +11,17 @@ class CheckoutController
 
 	def create
 		redirect_to '/' if @cart.blank? || @cart.success?
-		@order = CheckoutOrder.new order_attributes
 
-		if @order_service.process( @order, checkout_options )
+		@order = CheckoutOrder.new order_attributes
+		@order_service.validate( @order, checkout_options )
+		@order_service.process( @order, checkout_options ) if not( @order.has_errors? )
+
+		if not( @order.has_errors? )
 
 			order_success!
 
 			@fraud_service.mark_for_review( @order ) if @fraud_service.suspicious?( @order )
+			@agreement_service.process( order )
 
 			OrderMailer.receipt( @order ).deliver_now
 

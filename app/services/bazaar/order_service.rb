@@ -19,10 +19,6 @@ module Bazaar
 			options[:tax] ||= {}
 			options[:transaction] ||= {}
 
-			order.validate
-			self.validate( order )
-			@agreement_service.validate( order, options[:agreement] )
-			@fraud_service.validate( order, options[:fraud] )
 			@discount_service.calculate( order, options[:discount].merge( state: :pre_shipping ) ) unless order.has_errors?
 			@shipping_service.calculate( order, options[:shipping] ) unless order.has_errors?
 			@discount_service.calculate( order, options[:discount].merge( state: :pre_tax ) ) unless order.has_errors?
@@ -32,19 +28,32 @@ module Bazaar
 
 		end
 
+		def log_exception( e )
+			puts e
+			raise e if Rails.env.development?
+			NewRelic::Agent.notice_error( e ) if defined?( NewRelic )
+		end
+
 		def process( order, options = {} )
 			self.calculate( order, options )
 
 			@transaction_service.process( order, options[:transaction] ) unless order.has_errors?
 
-			if order.has_errors?
-				false
-			else
-				@tax_service.process( order, options[:tax] )
-				@shipping_service.process( order, options[:shipping] )
-				@agreement_service.process( order, options[:agreement] )
-				true
+			unless order.has_errors?
+				begin
+					@tax_service.process( order, options[:tax] )
+				rescue Exception => e
+					log_exception( e )
+				end
+
+				begin
+					@shipping_service.process( order, options[:shipping] )
+				rescue Exception => e
+					log_exception( e )
+				end
 			end
+
+			not( order.has_errors? )
 		end
 
 		def agreement_service
@@ -71,7 +80,17 @@ module Bazaar
 			@transaction_service
 		end
 
-		def validate( order )
+		def validate( order, options = {} )
+
+			order.validate
+			@agreement_service.validate( order )
+			@discount_service.validate( order )
+			@fraud_service.validate( order )
+			@shipping_service.validate( order )
+			@tax_service.validate( order )
+			@transaction_service.validate( order )
+
+			return not( order.has_errors? )
 		end
 
 	end

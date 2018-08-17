@@ -13,6 +13,9 @@ module Bazaar
 		has_many :transactions
 		has_many :shipments
 
+		has_many :agreement_orders
+		has_many :agreements, throught: :agreement_orders
+
 		def has_errors?
 		end
 

@@ -58,8 +58,9 @@ module Bazaar
 				end
 
 				def get_checkout_services
-					@order_service			= ApplicationOrderService.new
-					@fraud_service			= @order_service.fraud_service
+					@agreement_service	= ApplicationAgreementService.new
+					@fraud_service			= ApplicationFraudService.new
+					@order_service			= ApplicationOrderService.new( fraud_service: @fraud_service )
 				end
 
 				def get_order
@@ -79,7 +80,7 @@ module Bazaar
 
 				def order_success!
 
-					@cart.update( order: @order, status: 'success' )
+					@cart.update( order: @order, status: 'success' ) if @cart.present?
 
 					log_event( user: @order.user, name: 'purchase', value: @order.total, on: @order, content: "placed an order for $#{@order.total/100.to_f}." )
 
