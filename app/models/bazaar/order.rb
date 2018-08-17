@@ -11,6 +11,10 @@ module Bazaar
 		has_many :order_items
 		has_many :order_offers
 		has_many :transactions
+		has_many :shipments
+
+		def has_errors?
+		end
 
 	end
 

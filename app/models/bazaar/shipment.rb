@@ -9,6 +9,7 @@ module Bazaar
 		has_many :shipment_logs
 		has_many :inventory_logs
 
+		mattr_accessor :delivery_services
 	end
 
 end
