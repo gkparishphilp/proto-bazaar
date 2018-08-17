@@ -227,7 +227,7 @@ class SwellEcomMigration < ActiveRecord::Migration[5.1]
 			t.datetime		:expires_at, nil
 		end
 
-		create_table :bazaar_products do |t|
+		create_table :products do |t|
 			t.string			:title
 			t.string			:brand
 			t.string			:model

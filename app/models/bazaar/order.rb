@@ -8,6 +8,10 @@ module Bazaar
 		belongs_to :shipping_address, required: false
 		belongs_to :email
 
+		has_many :order_items
+		has_many :order_offers
+		has_many :transactions
+
 	end
 
 end

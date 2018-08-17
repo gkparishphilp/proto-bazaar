@@ -6,7 +6,7 @@ module Bazaar
 			belongs_to :order, required: false
 			belongs_to :user, required: false
 			belongs_to :agreement, required: false
-			belongs_to :payment_profile
+			belongs_to :payment_profile, required: false
 
 	end
 
