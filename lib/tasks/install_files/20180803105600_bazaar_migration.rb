@@ -198,6 +198,7 @@ class SwellEcomMigration < ActiveRecord::Migration[5.1]
 		create_table :bazaar_order_offers do |t|
 			t.references	:order
 			t.references	:offer_interval
+			t.integer			:interval, default: 1
 			t.string			:title
 			t.integer			:quantity, default: 1
 			t.integer			:price, default: 0
@@ -263,6 +264,7 @@ class SwellEcomMigration < ActiveRecord::Migration[5.1]
 			t.string			:tracking_url
 
 			t.integer			:cost, defaut: 0
+			t.integer			:price
 
 			t.datetime		:estimated_delivered_at, default: nil
 			t.datetime		:fulfillment_accepted_at, default: nil

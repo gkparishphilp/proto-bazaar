@@ -8,6 +8,7 @@ module Bazaar
 		end
 
 		def validate( order, args = {} )
+			# validate billing address/payment details
 		end
 
 	end
