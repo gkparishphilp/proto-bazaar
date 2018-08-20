@@ -17,12 +17,13 @@ class CheckoutController
 		@order_service.process( @order, checkout_options ) if not( @order.has_errors? )
 
 		if not( @order.has_errors? )
-
 			order_success!
 
+			# CheckoutPostProcessingWorker.perform_async( order.id )
+			# OR
+			@order_service.post_processing( @order )
 			@fraud_service.mark_for_review( @order ) if @fraud_service.suspicious?( @order )
 			@agreement_service.process( order )
-
 			OrderMailer.receipt( @order ).deliver_now
 
 			redirect_to signed_checkout_path( @order )

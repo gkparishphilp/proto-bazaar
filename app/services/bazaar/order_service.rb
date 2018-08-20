@@ -2,7 +2,6 @@ module Bazaar
 	module OrderService
 
 		def initialize( options = {} )
-			@agreement_service = ApplicationAgreementService.new
 			@discount_service = ApplicationDiscountService.new
 			@fraud_service = ApplicationFraudService.new
 			@shipping_service = ApplicationShippingService.new
@@ -34,30 +33,32 @@ module Bazaar
 			NewRelic::Agent.notice_error( e ) if defined?( NewRelic )
 		end
 
+		def post_processing( order, options = {} )
+			begin
+				@discount_service.process( order, options[:discount] )
+			rescue Exception => e
+				log_exception( e )
+			end
+
+			begin
+				@tax_service.process( order, options[:tax] )
+			rescue Exception => e
+				log_exception( e )
+			end
+
+			begin
+				@shipping_service.process( order, options[:shipping] )
+			rescue Exception => e
+				log_exception( e )
+			end
+		end
+
 		def process( order, options = {} )
 			self.calculate( order, options )
 
 			@transaction_service.process( order, options[:transaction] ) unless order.has_errors?
 
-			unless order.has_errors?
-				begin
-					@tax_service.process( order, options[:tax] )
-				rescue Exception => e
-					log_exception( e )
-				end
-
-				begin
-					@shipping_service.process( order, options[:shipping] )
-				rescue Exception => e
-					log_exception( e )
-				end
-			end
-
 			not( order.has_errors? )
-		end
-
-		def agreement_service
-			@agreement_service
 		end
 
 		def discount_service
@@ -83,7 +84,6 @@ module Bazaar
 		def validate( order, options = {} )
 
 			order.validate
-			@agreement_service.validate( order )
 			@discount_service.validate( order )
 			@fraud_service.validate( order )
 			@shipping_service.validate( order )
