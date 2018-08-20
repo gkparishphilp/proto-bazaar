@@ -47,7 +47,7 @@ module Bazaar
 					return true unless @environment == :production
 					order_info = get_order_info( order )
 
-					order_info[:sales_tax] = order.order_items.select{|order_item| order_item.tax? }.sum(&:subtotal).to_f / 100.0
+					order_info[:sales_tax] = order.tax / 100.0
 					tax_for_order = @client.tax_for_order( order_info )
 
 					tax_breakdown = tax_for_order.breakdown
@@ -105,8 +105,12 @@ module Bazaar
 
 				def calculate_order( order )
 					order.tax = 0
-					return false if not( order.billing_address.validate ) || order.billing_address.geo_country.blank? || order.billing_address.zip.blank?
-					return false if order.billing_address.geo_country.abbrev == 'US' && order.billing_address.geo_state.blank?
+					order.order_items = order.order_items.select{ |oi| not(oi.tax?) }
+
+					payment_profile = order.payment_profile
+					billing_address = payment_profile.try(:geo_address)
+					# return false if not( order.payment.validate ) || order.billing_address.geo_country.blank? || order.billing_address.zip.blank?
+					return false if billing_address.geo_country.abbrev == 'US' && billing_address.geo_state.blank?
 
 					order_info = get_order_info( order )
 
@@ -116,20 +120,20 @@ module Bazaar
 
 						NewRelic::Agent.notice_error(ex) if defined?( NewRelic )
 						puts ex
-						order.billing_address.errors.add :base, :invalid, message: "address is invalid"
+						billing_address.errors.add :base, :invalid, message: "address is invalid"
 
 					rescue Taxjar::Error::BadRequest => ex
 
 						if ex.message.include?( 'isn\'t a valid postal code' )
-							order.billing_address.errors.add :zip, :invalid, message: "#{order_info[:to_zip]} is not a valid zip/postal code"
+							billing_address.errors.add :zip, :invalid, message: "#{order_info[:to_zip]} is not a valid zip/postal code"
 							return order
 						elsif ex.message.include?( 'is not used within to_state' )
-							order.billing_address.errors.add :zip, :invalid, message: "#{order_info[:to_zip]} is not a valid zip/postal code within #{order_info[:to_state]}"
+							billing_address.errors.add :zip, :invalid, message: "#{order_info[:to_zip]} is not a valid zip/postal code within #{order_info[:to_state]}"
 							return order
 						else
 							NewRelic::Agent.notice_error(ex) if defined?( NewRelic )
 							puts ex
-							order.billing_address.errors.add :base, :invalid, message: "address is invalid"
+							billing_address.errors.add :base, :invalid, message: "address is invalid"
 							return false
 						end
 
@@ -150,51 +154,17 @@ module Bazaar
 						tax_geo = { country: order_info[:from_country], state: order_info[:from_state], city: order_info[:from_city] }
 					end
 
-					tax_order_item = order.order_items.new( subtotal: (tax_for_order.amount_to_collect * 100).to_i, title: "Tax", order_item_type: 'tax' )
+					order.order_items.new( subtotal: (tax_for_order.country_tax_collectable * 100).to_i, title: "Country", order_item_type: 'tax' ) if not( tax_breakdown.country_tax_collectable.nil? ) && tax_breakdown.country_tax_collectable.abs > 0.0
+					order.order_items.new( subtotal: (tax_for_order.county_tax_collectable * 100).to_i, title: "County", order_item_type: 'tax' ) if not( tax_breakdown.county_tax_collectable.nil? ) && tax_breakdown.county_tax_collectable.abs > 0.0
+					order.order_items.new( subtotal: (tax_for_order.state_tax_collectable * 100).to_i, title: "State", order_item_type: 'tax' ) if not( tax_breakdown.state_tax_collectable.nil? ) && tax_breakdown.state_tax_collectable.abs > 0.0
+					order.order_items.new( subtotal: (tax_for_order.city_tax_collectable * 100).to_i, title: "City", order_item_type: 'tax' ) if not( tax_breakdown.city_tax_collectable.nil? ) && tax_breakdown.city_tax_collectable.abs > 0.0
+					order.order_items.new( subtotal: (tax_for_order.special_district_tax_collectable * 100).to_i, title: "Special District", order_item_type: 'tax' ) if not( tax_breakdown.special_district_tax_collectable.nil? ) && tax_breakdown.special_district_tax_collectable.abs > 0.0
+					order.order_items.new( subtotal: (tax_for_order.gst * 100).to_i, title: "GST", order_item_type: 'tax' ) if tax_breakdown.gst.present? && tax_breakdown.gst != 0.0
+					order.order_items.new( subtotal: (tax_for_order.pst * 100).to_i, title: "PST", order_item_type: 'tax' ) if tax_breakdown.pst.present? && tax_breakdown.pst != 0.0
+					order.order_items.new( subtotal: (tax_for_order.qst * 100).to_i, title: "QST", order_item_type: 'tax' ) if tax_breakdown.qst.present? && tax_breakdown.qst != 0.0
+					order.order_items.new( subtotal: (tax_for_order.hst * 100).to_i, title: "HST", order_item_type: 'tax' ) if tax_breakdown.respond_to?(:hst) && tax_breakdown.hst.present? && tax_breakdown.hst != 0.0
 
-
-					if not( tax_breakdown.country_tax_collectable.nil? ) && tax_breakdown.country_tax_collectable.abs > 0.0
-						tax_order_item.properties = tax_order_item.properties.merge( 'country_tax_collectable' => (tax_breakdown.country_tax_collectable * 100).to_i ) if tax_order_item.respond_to?( :properties )
-						# puts "Tax (#{tax_geo[:country]}) #{tax_breakdown.country_tax_collectable}"
-					end
-
-					if not( tax_breakdown.county_tax_collectable.nil? ) && tax_breakdown.county_tax_collectable.abs > 0.0
-						tax_order_item.properties = tax_order_item.properties.merge( 'county_tax_collectable' => (tax_breakdown.county_tax_collectable * 100).to_i ) if tax_order_item.respond_to?( :properties )
-						# puts "Tax (county) #{tax_breakdown.county_tax_collectable}"
-					end
-
-					if not( tax_breakdown.state_tax_collectable.nil? ) && tax_breakdown.state_tax_collectable.abs > 0.0
-						tax_order_item.properties = tax_order_item.properties.merge( 'state_tax_collectable' => (tax_breakdown.state_tax_collectable * 100).to_i ) if tax_order_item.respond_to?( :properties )
-						# puts "Tax (#{tax_geo[:state]}) #{tax_breakdown.state_tax_collectable}"
-					end
-
-					if not( tax_breakdown.city_tax_collectable.nil? ) && tax_breakdown.city_tax_collectable.abs > 0.0
-						tax_order_item.properties = tax_order_item.properties.merge( 'city_tax_collectable' => (tax_breakdown.city_tax_collectable * 100).to_i ) if tax_order_item.respond_to?( :properties )
-						# puts "Tax (#{tax_geo[:city]}) #{tax_breakdown.city_tax_collectable}"
-					end
-
-					if not( tax_breakdown.special_district_tax_collectable.nil? ) && tax_breakdown.special_district_tax_collectable.abs > 0.0
-						tax_order_item.properties = tax_order_item.properties.merge( 'special_district_tax_collectable' => (tax_breakdown.special_district_tax_collectable * 100).to_i ) if tax_order_item.respond_to?( :properties )
-						# puts "Taxes (district) #{tax_breakdown.special_district_tax_collectable}"
-					end
-
-					if tax_breakdown.gst.present? && tax_breakdown.gst != 0.0
-						tax_order_item.properties = tax_order_item.properties.merge( 'gst' => (tax_breakdown.gst * 100).to_i ) if tax_order_item.respond_to?( :properties )
-						# puts "Tax (GST) #{tax_breakdown.gst}"
-					end
-
-					if tax_breakdown.pst.present? && tax_breakdown.pst != 0.0
-						tax_order_item.properties = tax_order_item.properties.merge( 'pst' => (tax_breakdown.pst * 100).to_i ) if tax_order_item.respond_to?( :properties )
-						# puts "Tax (PST) #{tax_breakdown.pst}"
-					end
-
-					if tax_breakdown.qst.present? && tax_breakdown.qst != 0.0
-						tax_order_item.properties = tax_order_item.properties.merge( 'qst' => (tax_breakdown.qst * 100).to_i ) if tax_order_item.respond_to?( :properties )
-						# puts "Tax (QST) #{tax_breakdown.qst}"
-					end
-
-					# puts JSON.pretty_generate tax_order_item.properties if tax_order_item.respond_to?( :properties )
-					order.tax = tax_order_item.subtotal
+					order.tax = (tax_for_order.amount_to_collect * 100).to_i
 
 
 					return order
@@ -203,27 +173,25 @@ module Bazaar
 
 				def get_order_info( order )
 
-					shipping_amount = order.order_items.select{ |order_item| order_item.shipping? }.sum(&:subtotal) / 100.0
-					order_total = order.order_items.select{ |order_item| order_item.prod? }.sum(&:subtotal) / 100.0
-					discount_total = order.order_items.select{ |order_item| order_item.discount? }.sum(&:subtotal) / 100.0
+					shipping_amount = order.shipping / 100.0
+					order_total = order.subtotal / 100.0
+					discount_total = order.discount / 100.0
 
 					discount_applied = 0
 					line_items = []
-					order.order_items.each do |order_item|
-						if order_item.prod?
-							discount = [ -(discount_total - discount_applied), order_item.subtotal ].min
+					order.order_offers.each do |order_offer|
+						discount = [ -(discount_total - discount_applied), order_offer.subtotal ].min
 
-							line_items << {
-								:quantity => order_item.quantity,
-								:unit_price => (order_item.price / 100.0),
-								:product_tax_code => order_item.tax_code,
-								:product_identifier => order_item.sku,
-								:description => order_item.title,
-								:discount => discount,
-							}
+						line_items << {
+							:quantity => order_offer.quantity,
+							:unit_price => (order_offer.price / 100.0),
+							:product_tax_code => order_offer.tax_code,
+							:product_identifier => order_offer.offer.slug,
+							:description => order_offer.offer.title,
+							:discount => discount,
+						}
 
-							discount_applied = discount_applied - discount
-						end
+						discount_applied = discount_applied - discount
 					end
 
 					order_info = {
